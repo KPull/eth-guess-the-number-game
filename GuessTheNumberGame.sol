@@ -1,4 +1,4 @@
-pragma solidity ^0.4.17;
+pragma solidity ^0.4.23;
 
 /** 
  *  A game where a player tries to guess a number between 1 and 10.
@@ -9,11 +9,12 @@ pragma solidity ^0.4.17;
  */
 contract GuessTheNumberGame {
     
+    event GameStarted(uint bet);
     event SecretNumberSubmitted(bytes32 secretNumber);
-    event GuessSubmitted(address player, uint guess);
+    event GuessSubmitted(address indexed player, uint guess);
     event ResultSubmitted(uint result);
-    event PlayerWins();
-    event OperatorWins();
+    event PlayerWins(address indexed player);
+    event OperatorWins(address indexed operator);
     
     enum State {
         WAITING_SECRET, WAITING_GUESS, WAITING_RESULT, OPERATOR_WIN, PLAYER_WIN
@@ -43,12 +44,14 @@ contract GuessTheNumberGame {
         _;
     }
     
-    function GuessTheNumberGame(uint256 _bet) public {
+    constructor(uint256 _bet) public {
         require(_bet > 0);
         
         operator = msg.sender;
         state = State.WAITING_SECRET;
         bet = _bet;
+        
+        emit GameStarted(bet);
         
         assert(getOperatorBet() > _bet);   // Protect against overflow
     }
@@ -59,7 +62,7 @@ contract GuessTheNumberGame {
         secretNumber = _secretNumber;
         moveToState(State.WAITING_GUESS);
         
-        SecretNumberSubmitted(_secretNumber);
+        emit SecretNumberSubmitted(_secretNumber);
     }
     
     function submitGuess(uint _guess) public payable inState(State.WAITING_GUESS) {
@@ -70,7 +73,7 @@ contract GuessTheNumberGame {
         player = msg.sender;
         moveToState(State.WAITING_RESULT);
         
-        GuessSubmitted(player, guess);
+        emit GuessSubmitted(player, guess);
     }
     
     function submitResult(uint _result) public byOperator inState(State.WAITING_RESULT) {
@@ -78,14 +81,14 @@ contract GuessTheNumberGame {
         require(makeSecret(_result) == secretNumber);
         
         result = _result;
-        ResultSubmitted(_result);
+        emit ResultSubmitted(_result);
         
         if (result == guess) {
             moveToState(State.PLAYER_WIN);
-            PlayerWins();
+            emit PlayerWins(player);
         } else {
             moveToState(State.OPERATOR_WIN);
-            OperatorWins();
+            emit OperatorWins(player);
         }
     }
     
